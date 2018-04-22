@@ -1,0 +1,118 @@
+defaults: &defaults
+  environment:
+    GOOGLE_PROJECT_ID: planet-4-151612
+    INFRA_VERSION: develop
+    CONTAINER_PREFEX: planet4-base
+    BUILD_FLAGS: -r
+  docker:
+    - image: gcr.io/planet-4-151612/p4-builder:develop
+  working_directory:  /home/circleci/
+
+version: 2
+
+jobs:
+  build:
+    <<: *defaults
+    steps:
+      - setup_remote_docker
+
+      - run:
+          name: Configure gcloud
+          command: |
+            ${HOME}/scripts/activate-gcloud-account.sh
+
+      - run:
+          name: Build application
+          working_directory: /home/circleci
+          command: |
+            make
+
+  # test:
+  #   <<: *defaults
+  #   steps:
+  #     - run:
+  #         name: Placeholder
+  #         command: |
+  #           echo "Branch: ${CIRCLE_BRANCH}"
+  #           echo "Build:  ${CIRCLE_BUILD_NUM}"
+  #           echo "Tag:    ${CIRCLE_TAG}"
+  #           echo "No tests implemented yet"
+
+  deploy-develop:
+    <<: *defaults
+    steps:
+      # - checkout
+      #
+      # - setup_remote_docker
+      #
+
+
+      # - run:
+      #     name: Configure gcloud
+      #     command: |
+      #       ${HOME}/scripts/activate-gcloud-account.sh
+
+      - run:
+          name: Helm deploy
+          command: |
+            echo "@Deploy new container versions to Kubernetes"
+
+
+  deploy-production:
+    <<: *defaults
+    steps:
+      # - checkout
+      #
+      # - setup_remote_docker
+      #
+
+
+      # - run:
+      #     name: Configure gcloud
+      #     command: |
+      #       ${HOME}/scripts/activate-gcloud-account.sh
+
+      - run:
+          name: Helm deploy
+          command: |
+            echo "@Deploy new container versions to Kubernetes"
+
+workflows:
+  version: 2
+  build-test-and-deploy:
+    jobs:
+      - build:
+          context: org-global
+          filters:
+            branches:
+              only: /.*/
+            tags:
+              only: /.*/
+
+      - deploy-develop:
+          requires:
+            - build
+          filters:
+            branches:
+              only: develop
+
+      # - test:
+      #     requires:
+      #       - build
+      #     filters:
+      #       tags:
+      #         only: /.*/
+      # Only run deploy job for tagged releases on master
+
+      - hold-production:
+          type: approval
+          requires:
+            - build
+
+      - deploy-production:
+          context: org-global
+          requires:
+            - hold-production
+          filters:
+            tags:
+              only: /v.*/
